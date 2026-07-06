@@ -46,7 +46,7 @@ public final class SettlementCalculator {
       long amount = Math.min(debtor.amount, creditor.amount);
 
       if (amount > 0) {
-        String id = debtor.memberId + "->" + creditor.memberId + ":" + amount;
+        String id = debtor.memberId + "->" + creditor.memberId;
         settlements.add(new SettlementDto(id, debtor.memberId, creditor.memberId, amount, paidSettlementIds.contains(id)));
       }
 

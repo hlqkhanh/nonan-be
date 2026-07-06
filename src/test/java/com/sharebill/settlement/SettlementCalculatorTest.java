@@ -17,8 +17,8 @@ class SettlementCalculatorTest {
     List<SettlementDto> settlements = SettlementCalculator.calculate(List.of(defaultExpense()), Set.of());
 
     assertThat(settlements).containsExactly(
-        new SettlementDto("b->a:30000", "b", "a", 30000, false),
-        new SettlementDto("c->a:30000", "c", "a", 30000, false)
+        new SettlementDto("b->a", "b", "a", 30000, false),
+        new SettlementDto("c->a", "c", "a", 30000, false)
     );
   }
 
@@ -33,13 +33,14 @@ class SettlementCalculatorTest {
         null,
         List.of(new PayerContributionDto("a", 50000), new PayerContributionDto("b", 40000)),
         defaultParticipants(),
-        "equal"
+        "equal",
+        "cycle-1"
     );
 
     assertThat(SettlementCalculator.calculate(List.of(expense), Set.of()))
         .containsExactly(
-            new SettlementDto("c->a:20000", "c", "a", 20000, false),
-            new SettlementDto("c->b:10000", "c", "b", 10000, false)
+            new SettlementDto("c->a", "c", "a", 20000, false),
+            new SettlementDto("c->b", "c", "b", 10000, false)
         );
   }
 
@@ -54,7 +55,8 @@ class SettlementCalculatorTest {
         null,
         List.of(new PayerContributionDto("x", 90000)),
         defaultParticipants(),
-        "equal"
+        "equal",
+        "cycle-1"
     );
 
     assertThat(SettlementCalculator.calculate(List.of(expense), Set.of()))
@@ -71,8 +73,9 @@ class SettlementCalculatorTest {
         LocalDate.of(2026, 7, 3),
         null,
         List.of(new PayerContributionDto("a", 0)),
-        List.of(new ParticipantShareDto("a", 0, false)),
-        "equal"
+        List.of(new ParticipantShareDto("a", 0, false, null)),
+        "equal",
+        "cycle-1"
     );
 
     assertThat(SettlementCalculator.calculate(List.of(expense), Set.of())).isEmpty();
@@ -80,7 +83,7 @@ class SettlementCalculatorTest {
 
   @Test
   void marksPaidSettlements() {
-    assertThat(SettlementCalculator.calculate(List.of(defaultExpense()), Set.of("b->a:30000")).getFirst().paid()).isTrue();
+    assertThat(SettlementCalculator.calculate(List.of(defaultExpense()), Set.of("b->a")).get(0).paid()).isTrue();
   }
 
   private static ExpenseDto defaultExpense() {
@@ -93,15 +96,16 @@ class SettlementCalculatorTest {
         null,
         List.of(new PayerContributionDto("a", 90000)),
         defaultParticipants(),
-        "equal"
+        "equal",
+        "cycle-1"
     );
   }
 
   private static List<ParticipantShareDto> defaultParticipants() {
     return List.of(
-        new ParticipantShareDto("a", 30000, false),
-        new ParticipantShareDto("b", 30000, false),
-        new ParticipantShareDto("c", 30000, false)
+        new ParticipantShareDto("a", 30000, false, null),
+        new ParticipantShareDto("b", 30000, false, null),
+        new ParticipantShareDto("c", 30000, false, null)
     );
   }
 }

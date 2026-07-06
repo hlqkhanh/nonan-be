@@ -6,6 +6,6 @@ import java.util.List;
 public record GroupDto(
     @NotBlank String id,
     @NotBlank String name,
-    List<MemberDto> members
+    List<GroupMemberDto> members
 ) {
 }
