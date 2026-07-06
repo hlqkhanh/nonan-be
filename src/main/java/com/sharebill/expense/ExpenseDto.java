@@ -1,0 +1,21 @@
+package com.sharebill.expense;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import java.time.LocalDate;
+import java.util.List;
+
+public record ExpenseDto(
+    @NotBlank String id,
+    @NotBlank String groupId,
+    @NotBlank String title,
+    @Min(0) long totalAmount,
+    LocalDate paidDate,
+    String imageUrl,
+    @NotEmpty List<@Valid PayerContributionDto> payers,
+    @NotEmpty List<@Valid ParticipantShareDto> participants,
+    @NotBlank String splitMode
+) {
+}

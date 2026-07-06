@@ -1,0 +1,25 @@
+# Maven build output
+target/
+
+# Spring Boot local overrides
+application-local.properties
+application-*.local.properties
+
+# Logs
+*.log
+logs/
+
+# Java runtime artifacts
+hs_err_pid*
+replay_pid*
+
+# IDE and editor files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS files
+.DS_Store
+Thumbs.db
