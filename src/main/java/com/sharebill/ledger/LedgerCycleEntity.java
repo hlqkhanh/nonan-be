@@ -13,8 +13,8 @@ public class LedgerCycleEntity {
   @Id
   private String id;
 
-  @Column(name = "group_id", nullable = false)
-  private String groupId;
+  @Column(name = "owner_user_id", nullable = false)
+  private String ownerUserId;
 
   @Column(nullable = false)
   private String status;
@@ -31,15 +31,15 @@ public class LedgerCycleEntity {
   @Column(name = "closed_at")
   private Instant closedAt;
 
-  @Column(name = "closed_by_member_id")
-  private String closedByMemberId;
+  @Column(name = "closed_by_user_id")
+  private String closedByUserId;
 
   protected LedgerCycleEntity() {
   }
 
-  public LedgerCycleEntity(String id, String groupId, String status, LocalDate startDate, Instant createdAt) {
+  public LedgerCycleEntity(String id, String ownerUserId, String status, LocalDate startDate, Instant createdAt) {
     this.id = id;
-    this.groupId = groupId;
+    this.ownerUserId = ownerUserId;
     this.status = status;
     this.startDate = startDate;
     this.createdAt = createdAt;
@@ -49,8 +49,8 @@ public class LedgerCycleEntity {
     return id;
   }
 
-  public String getGroupId() {
-    return groupId;
+  public String getOwnerUserId() {
+    return ownerUserId;
   }
 
   public String getStatus() {
@@ -85,11 +85,11 @@ public class LedgerCycleEntity {
     this.closedAt = closedAt;
   }
 
-  public String getClosedByMemberId() {
-    return closedByMemberId;
+  public String getClosedByUserId() {
+    return closedByUserId;
   }
 
-  public void setClosedByMemberId(String closedByMemberId) {
-    this.closedByMemberId = closedByMemberId;
+  public void setClosedByUserId(String closedByUserId) {
+    this.closedByUserId = closedByUserId;
   }
 }

@@ -18,8 +18,8 @@ public class ExpenseEntity {
   @Id
   private String id;
 
-  @Column(name = "group_id", nullable = false)
-  private String groupId;
+  @Column(name = "owner_user_id", nullable = false)
+  private String ownerUserId;
 
   @Column(name = "ledger_cycle_id", nullable = false)
   private String ledgerCycleId;
@@ -56,10 +56,10 @@ public class ExpenseEntity {
   protected ExpenseEntity() {
   }
 
-  public ExpenseEntity(String id, String groupId, String ledgerCycleId, String title, long totalAmount,
+  public ExpenseEntity(String id, String ownerUserId, String ledgerCycleId, String title, long totalAmount,
       LocalDate paidDate, String imageUrl, String splitMode, Instant createdAt, Instant updatedAt) {
     this.id = id;
-    this.groupId = groupId;
+    this.ownerUserId = ownerUserId;
     this.ledgerCycleId = ledgerCycleId;
     this.title = title;
     this.totalAmount = totalAmount;
@@ -74,8 +74,8 @@ public class ExpenseEntity {
     return id;
   }
 
-  public String getGroupId() {
-    return groupId;
+  public String getOwnerUserId() {
+    return ownerUserId;
   }
 
   public String getLedgerCycleId() {

@@ -16,16 +16,15 @@ public class AuditService {
     this.objectMapper = objectMapper;
   }
 
-  public AuditLogEntity log(String groupId, String ledgerCycleId, String actorMemberId, String action,
+  public AuditLogEntity log(String ownerUserId, String ledgerCycleId, String action,
       String entityType, String entityId, String summary, Object before, Object after) {
     JsonNode beforeNode = before == null ? null : objectMapper.valueToTree(before);
     JsonNode afterNode = after == null ? null : objectMapper.valueToTree(after);
 
     AuditLogEntity entity = new AuditLogEntity(
         IdGenerator.next("audit"),
-        groupId,
+        ownerUserId,
         ledgerCycleId,
-        actorMemberId,
         action,
         entityType,
         entityId,

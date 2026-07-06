@@ -26,7 +26,6 @@ class SettlementCalculatorTest {
   void supportsMultiplePayers() {
     ExpenseDto expense = new ExpenseDto(
         "expense-1",
-        "group-1",
         "Dinner",
         90000,
         LocalDate.of(2026, 7, 3),
@@ -48,7 +47,6 @@ class SettlementCalculatorTest {
   void allowsPayerOutsideParticipants() {
     ExpenseDto expense = new ExpenseDto(
         "expense-1",
-        "group-1",
         "Dinner",
         90000,
         LocalDate.of(2026, 7, 3),
@@ -67,7 +65,6 @@ class SettlementCalculatorTest {
   void skipsZeroSettlements() {
     ExpenseDto expense = new ExpenseDto(
         "expense-1",
-        "group-1",
         "Free",
         0,
         LocalDate.of(2026, 7, 3),
@@ -89,7 +86,6 @@ class SettlementCalculatorTest {
   private static ExpenseDto defaultExpense() {
     return new ExpenseDto(
         "expense-1",
-        "group-1",
         "Dinner",
         90000,
         LocalDate.of(2026, 7, 3),

@@ -1,7 +1,5 @@
 package com.sharebill.expense;
 
-import com.sharebill.group.GroupAccessService;
-import com.sharebill.group.MemberEntity;
 import com.sharebill.user.UserEntity;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -18,41 +16,33 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/groups/{groupId}/expenses")
+@RequestMapping("/api/expenses")
 public class ExpenseController {
   private final ExpenseService expenseService;
-  private final GroupAccessService groupAccessService;
 
-  public ExpenseController(ExpenseService expenseService, GroupAccessService groupAccessService) {
+  public ExpenseController(ExpenseService expenseService) {
     this.expenseService = expenseService;
-    this.groupAccessService = groupAccessService;
   }
 
   @GetMapping
-  public List<ExpenseDto> expenses(@PathVariable String groupId, @AuthenticationPrincipal UserEntity user) {
-    groupAccessService.requireMember(groupId, user.getId());
-    return expenseService.listExpenses(groupId);
+  public List<ExpenseDto> expenses(@AuthenticationPrincipal UserEntity user) {
+    return expenseService.listExpenses(user.getId());
   }
 
   @PostMapping
-  public ExpenseDto createExpense(@PathVariable String groupId, @Valid @RequestBody ExpenseDto expense,
-      @AuthenticationPrincipal UserEntity user) {
-    MemberEntity actor = groupAccessService.requireMember(groupId, user.getId());
-    return expenseService.createExpense(groupId, expense, actor.getId());
+  public ExpenseDto createExpense(@Valid @RequestBody ExpenseDto expense, @AuthenticationPrincipal UserEntity user) {
+    return expenseService.createExpense(user.getId(), expense);
   }
 
   @PutMapping("/{expenseId}")
-  public ExpenseDto updateExpense(@PathVariable String groupId, @PathVariable String expenseId,
-      @Valid @RequestBody ExpenseDto expense, @AuthenticationPrincipal UserEntity user) {
-    MemberEntity actor = groupAccessService.requireMember(groupId, user.getId());
-    return expenseService.updateExpense(groupId, expenseId, expense, actor.getId());
+  public ExpenseDto updateExpense(@PathVariable String expenseId, @Valid @RequestBody ExpenseDto expense,
+      @AuthenticationPrincipal UserEntity user) {
+    return expenseService.updateExpense(user.getId(), expenseId, expense);
   }
 
   @DeleteMapping("/{expenseId}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  public void deleteExpense(@PathVariable String groupId, @PathVariable String expenseId,
-      @AuthenticationPrincipal UserEntity user) {
-    MemberEntity actor = groupAccessService.requireMember(groupId, user.getId());
-    expenseService.deleteExpense(groupId, expenseId, actor.getId());
+  public void deleteExpense(@PathVariable String expenseId, @AuthenticationPrincipal UserEntity user) {
+    expenseService.deleteExpense(user.getId(), expenseId);
   }
 }

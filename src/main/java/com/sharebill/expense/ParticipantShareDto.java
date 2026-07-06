@@ -9,6 +9,10 @@ public record ParticipantShareDto(
     @NotBlank String memberId,
     @Min(0) long amount,
     boolean isCustom,
-    String memberName
+    String memberName,
+    String avatarUrl
 ) {
+  public ParticipantShareDto(String memberId, long amount, boolean isCustom, String memberName) {
+    this(memberId, amount, isCustom, memberName, null);
+  }
 }

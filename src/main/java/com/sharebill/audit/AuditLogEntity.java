@@ -15,14 +15,11 @@ public class AuditLogEntity {
   @Id
   private String id;
 
-  @Column(name = "group_id", nullable = false)
-  private String groupId;
+  @Column(name = "owner_user_id", nullable = false)
+  private String ownerUserId;
 
   @Column(name = "ledger_cycle_id")
   private String ledgerCycleId;
-
-  @Column(name = "actor_member_id", nullable = false)
-  private String actorMemberId;
 
   @Column(nullable = false)
   private String action;
@@ -50,12 +47,11 @@ public class AuditLogEntity {
   protected AuditLogEntity() {
   }
 
-  public AuditLogEntity(String id, String groupId, String ledgerCycleId, String actorMemberId, String action,
+  public AuditLogEntity(String id, String ownerUserId, String ledgerCycleId, String action,
       String entityType, String entityId, String summary, JsonNode beforeJson, JsonNode afterJson, Instant createdAt) {
     this.id = id;
-    this.groupId = groupId;
+    this.ownerUserId = ownerUserId;
     this.ledgerCycleId = ledgerCycleId;
-    this.actorMemberId = actorMemberId;
     this.action = action;
     this.entityType = entityType;
     this.entityId = entityId;
@@ -69,16 +65,12 @@ public class AuditLogEntity {
     return id;
   }
 
-  public String getGroupId() {
-    return groupId;
+  public String getOwnerUserId() {
+    return ownerUserId;
   }
 
   public String getLedgerCycleId() {
     return ledgerCycleId;
-  }
-
-  public String getActorMemberId() {
-    return actorMemberId;
   }
 
   public String getAction() {

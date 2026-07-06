@@ -1,7 +1,5 @@
 package com.sharebill.ledger;
 
-import com.sharebill.group.GroupAccessService;
-import com.sharebill.group.MemberEntity;
 import com.sharebill.settlement.AdjustRequest;
 import com.sharebill.settlement.MarkPaidRequest;
 import com.sharebill.settlement.SettlementDto;
@@ -17,58 +15,48 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/groups/{groupId}/ledger")
+@RequestMapping("/api/ledger")
 public class LedgerController {
   private final LedgerService ledgerService;
-  private final GroupAccessService groupAccessService;
 
-  public LedgerController(LedgerService ledgerService, GroupAccessService groupAccessService) {
+  public LedgerController(LedgerService ledgerService) {
     this.ledgerService = ledgerService;
-    this.groupAccessService = groupAccessService;
   }
 
   @GetMapping("/current")
-  public LedgerCycleDetailDto current(@PathVariable String groupId, @AuthenticationPrincipal UserEntity user) {
-    groupAccessService.requireMember(groupId, user.getId());
-    return ledgerService.getCurrentCycleDetail(groupId);
+  public LedgerCycleDetailDto current(@AuthenticationPrincipal UserEntity user) {
+    return ledgerService.getCurrentCycleDetail(user.getId());
   }
 
   @GetMapping("/cycles")
-  public List<LedgerCycleDto> cycles(@PathVariable String groupId, @AuthenticationPrincipal UserEntity user) {
-    groupAccessService.requireMember(groupId, user.getId());
-    return ledgerService.listCycles(groupId);
+  public List<LedgerCycleDto> cycles(@AuthenticationPrincipal UserEntity user) {
+    return ledgerService.listCycles(user.getId());
   }
 
   @GetMapping("/cycles/{cycleId}")
-  public LedgerCycleDetailDto cycleDetail(@PathVariable String groupId, @PathVariable String cycleId,
-      @AuthenticationPrincipal UserEntity user) {
-    groupAccessService.requireMember(groupId, user.getId());
-    return ledgerService.getCycleDetail(groupId, cycleId);
+  public LedgerCycleDetailDto cycleDetail(@PathVariable String cycleId, @AuthenticationPrincipal UserEntity user) {
+    return ledgerService.getCycleDetail(user.getId(), cycleId);
   }
 
   @PostMapping("/current/settle")
-  public LedgerCycleDetailDto settle(@PathVariable String groupId, @AuthenticationPrincipal UserEntity user) {
-    MemberEntity actor = groupAccessService.requireMember(groupId, user.getId());
-    return ledgerService.closeCycle(groupId, actor.getId(), "settled");
+  public LedgerCycleDetailDto settle(@AuthenticationPrincipal UserEntity user) {
+    return ledgerService.closeCycle(user.getId(), "settled");
   }
 
   @PostMapping("/current/archive")
-  public LedgerCycleDetailDto archive(@PathVariable String groupId, @AuthenticationPrincipal UserEntity user) {
-    MemberEntity actor = groupAccessService.requireMember(groupId, user.getId());
-    return ledgerService.closeCycle(groupId, actor.getId(), "archived_unpaid");
+  public LedgerCycleDetailDto archive(@AuthenticationPrincipal UserEntity user) {
+    return ledgerService.closeCycle(user.getId(), "archived_unpaid");
   }
 
   @PostMapping("/cycles/{cycleId}/settlements/mark-paid")
-  public List<SettlementDto> markPaid(@PathVariable String groupId, @PathVariable String cycleId,
-      @Valid @RequestBody MarkPaidRequest request, @AuthenticationPrincipal UserEntity user) {
-    MemberEntity actor = groupAccessService.requireMember(groupId, user.getId());
-    return ledgerService.markPaid(groupId, cycleId, request.settlementId(), actor.getId());
+  public List<SettlementDto> markPaid(@PathVariable String cycleId, @Valid @RequestBody MarkPaidRequest request,
+      @AuthenticationPrincipal UserEntity user) {
+    return ledgerService.markPaid(user.getId(), cycleId, request.settlementId());
   }
 
   @PostMapping("/cycles/{cycleId}/settlements/adjust")
-  public List<SettlementDto> adjust(@PathVariable String groupId, @PathVariable String cycleId,
-      @Valid @RequestBody AdjustRequest request, @AuthenticationPrincipal UserEntity user) {
-    MemberEntity actor = groupAccessService.requireMember(groupId, user.getId());
-    return ledgerService.adjustSettlement(groupId, cycleId, request.settlementId(), request.deltaAmount(), actor.getId());
+  public List<SettlementDto> adjust(@PathVariable String cycleId, @Valid @RequestBody AdjustRequest request,
+      @AuthenticationPrincipal UserEntity user) {
+    return ledgerService.adjustSettlement(user.getId(), cycleId, request.settlementId(), request.deltaAmount());
   }
 }

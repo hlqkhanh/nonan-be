@@ -11,7 +11,6 @@ import java.util.List;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record ExpenseDto(
     @NotBlank String id,
-    @NotBlank String groupId,
     @NotBlank String title,
     @Min(0) long totalAmount,
     LocalDate paidDate,

@@ -2,7 +2,6 @@ package com.sharebill.expense;
 
 import com.sharebill.audit.AuditService;
 import com.sharebill.common.ConflictException;
-import com.sharebill.common.IdGenerator;
 import com.sharebill.common.NotFoundException;
 import com.sharebill.ledger.LedgerCycleEntity;
 import com.sharebill.ledger.LedgerCycleRepository;
@@ -18,48 +17,50 @@ public class ExpenseService {
   private final LedgerService ledgerService;
   private final LedgerCycleRepository ledgerCycleRepository;
   private final AuditService auditService;
+  private final ExpenseMapper expenseMapper;
 
   public ExpenseService(ExpenseRepository expenseRepository, LedgerService ledgerService,
-      LedgerCycleRepository ledgerCycleRepository, AuditService auditService) {
+      LedgerCycleRepository ledgerCycleRepository, AuditService auditService, ExpenseMapper expenseMapper) {
     this.expenseRepository = expenseRepository;
     this.ledgerService = ledgerService;
     this.ledgerCycleRepository = ledgerCycleRepository;
     this.auditService = auditService;
+    this.expenseMapper = expenseMapper;
   }
 
   @Transactional(readOnly = true)
-  public List<ExpenseDto> listExpenses(String groupId) {
-    return expenseRepository.findByGroupIdOrderByPaidDateDesc(groupId).stream()
-        .map(ExpenseMapper::toDto)
+  public List<ExpenseDto> listExpenses(String ownerUserId) {
+    return expenseRepository.findByOwnerUserIdOrderByPaidDateDesc(ownerUserId).stream()
+        .map(expenseMapper::toDto)
         .toList();
   }
 
   @Transactional
-  public ExpenseDto createExpense(String groupId, ExpenseDto request, String actorMemberId) {
-    validateExpense(groupId, request);
-    LedgerCycleEntity cycle = ledgerService.ensureOpenCycle(groupId);
+  public ExpenseDto createExpense(String ownerUserId, ExpenseDto request) {
+    validateExpense(request);
+    LedgerCycleEntity cycle = ledgerService.ensureOpenCycle(ownerUserId);
 
     Instant now = Instant.now();
-    ExpenseEntity entity = new ExpenseEntity(request.id(), groupId, cycle.getId(), request.title(),
+    ExpenseEntity entity = new ExpenseEntity(request.id(), ownerUserId, cycle.getId(), request.title(),
         request.totalAmount(), request.paidDate(), request.imageUrl(), request.splitMode(), now, now);
 
     populateLines(entity, request);
     expenseRepository.save(entity);
 
-    ExpenseDto dto = ExpenseMapper.toDto(entity);
-    auditService.log(groupId, cycle.getId(), actorMemberId, "expense.created", "expense", entity.getId(),
+    ExpenseDto dto = expenseMapper.toDto(entity);
+    auditService.log(ownerUserId, cycle.getId(), "expense.created", "expense", entity.getId(),
         "Đã tạo bill " + request.title() + " " + request.totalAmount() + "đ", null, dto);
 
     return dto;
   }
 
   @Transactional
-  public ExpenseDto updateExpense(String groupId, String expenseId, ExpenseDto request, String actorMemberId) {
-    ExpenseEntity entity = requireExpense(groupId, expenseId);
+  public ExpenseDto updateExpense(String ownerUserId, String expenseId, ExpenseDto request) {
+    ExpenseEntity entity = requireExpense(ownerUserId, expenseId);
     LedgerCycleEntity cycle = requireOpenCycleForExpense(entity);
 
-    validateExpense(groupId, request);
-    ExpenseDto before = ExpenseMapper.toDto(entity);
+    validateExpense(request);
+    ExpenseDto before = expenseMapper.toDto(entity);
 
     entity.setTitle(request.title());
     entity.setTotalAmount(request.totalAmount());
@@ -72,23 +73,23 @@ public class ExpenseService {
     populateLines(entity, request);
 
     expenseRepository.save(entity);
-    ExpenseDto after = ExpenseMapper.toDto(entity);
+    ExpenseDto after = expenseMapper.toDto(entity);
 
-    auditService.log(groupId, cycle.getId(), actorMemberId, "expense.updated", "expense", entity.getId(),
+    auditService.log(ownerUserId, cycle.getId(), "expense.updated", "expense", entity.getId(),
         "Đã sửa bill " + request.title(), before, after);
 
     return after;
   }
 
   @Transactional
-  public void deleteExpense(String groupId, String expenseId, String actorMemberId) {
-    ExpenseEntity entity = requireExpense(groupId, expenseId);
+  public void deleteExpense(String ownerUserId, String expenseId) {
+    ExpenseEntity entity = requireExpense(ownerUserId, expenseId);
     LedgerCycleEntity cycle = requireOpenCycleForExpense(entity);
 
-    ExpenseDto before = ExpenseMapper.toDto(entity);
+    ExpenseDto before = expenseMapper.toDto(entity);
     expenseRepository.delete(entity);
 
-    auditService.log(groupId, cycle.getId(), actorMemberId, "expense.deleted", "expense", expenseId,
+    auditService.log(ownerUserId, cycle.getId(), "expense.deleted", "expense", expenseId,
         "Đã xóa bill " + before.title(), before, null);
   }
 
@@ -101,14 +102,14 @@ public class ExpenseService {
     for (ParticipantShareDto participant : request.participants()) {
       entity.getParticipants().add(new ExpenseParticipantEntity(
           entity, participant.memberId(), participant.amount(), participant.isCustom(),
-          participant.memberName(), position++));
+          null, position++));
     }
   }
 
-  private ExpenseEntity requireExpense(String groupId, String expenseId) {
+  private ExpenseEntity requireExpense(String ownerUserId, String expenseId) {
     ExpenseEntity entity = expenseRepository.findById(expenseId)
         .orElseThrow(() -> new NotFoundException("Expense not found: " + expenseId));
-    if (!entity.getGroupId().equals(groupId)) {
+    if (!entity.getOwnerUserId().equals(ownerUserId)) {
       throw new NotFoundException("Expense not found: " + expenseId);
     }
     return entity;
@@ -123,11 +124,7 @@ public class ExpenseService {
     return cycle;
   }
 
-  private void validateExpense(String groupId, ExpenseDto expense) {
-    if (!groupId.equals(expense.groupId())) {
-      throw new IllegalArgumentException("Expense groupId must match path groupId");
-    }
-
+  private void validateExpense(ExpenseDto expense) {
     long payerTotal = expense.payers().stream().mapToLong(PayerContributionDto::amount).sum();
     long shareTotal = expense.participants().stream().mapToLong(ParticipantShareDto::amount).sum();
 

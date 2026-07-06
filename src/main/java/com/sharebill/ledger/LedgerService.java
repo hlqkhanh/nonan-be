@@ -33,11 +33,12 @@ public class LedgerService {
   private final PaidSettlementRepository paidSettlementRepository;
   private final AuditLogRepository auditLogRepository;
   private final AuditService auditService;
+  private final ExpenseMapper expenseMapper;
 
   public LedgerService(LedgerCycleRepository ledgerCycleRepository, ExpenseRepository expenseRepository,
       SettlementSnapshotRepository snapshotRepository, SettlementAdjustmentRepository adjustmentRepository,
       PaidSettlementRepository paidSettlementRepository, AuditLogRepository auditLogRepository,
-      AuditService auditService) {
+      AuditService auditService, ExpenseMapper expenseMapper) {
     this.ledgerCycleRepository = ledgerCycleRepository;
     this.expenseRepository = expenseRepository;
     this.snapshotRepository = snapshotRepository;
@@ -45,28 +46,29 @@ public class LedgerService {
     this.paidSettlementRepository = paidSettlementRepository;
     this.auditLogRepository = auditLogRepository;
     this.auditService = auditService;
+    this.expenseMapper = expenseMapper;
   }
 
   @Transactional
-  public LedgerCycleEntity ensureOpenCycle(String groupId) {
-    return ledgerCycleRepository.findByGroupIdAndStatus(groupId, "open")
-        .orElseGet(() -> createOpenCycle(groupId));
+  public LedgerCycleEntity ensureOpenCycle(String ownerUserId) {
+    return ledgerCycleRepository.findByOwnerUserIdAndStatus(ownerUserId, "open")
+        .orElseGet(() -> createOpenCycle(ownerUserId));
   }
 
-  private LedgerCycleEntity createOpenCycle(String groupId) {
+  private LedgerCycleEntity createOpenCycle(String ownerUserId) {
     try {
       LedgerCycleEntity cycle = new LedgerCycleEntity(
-          IdGenerator.next("cycle"), groupId, "open", LocalDate.now(), Instant.now());
+          IdGenerator.next("cycle"), ownerUserId, "open", LocalDate.now(), Instant.now());
       return ledgerCycleRepository.saveAndFlush(cycle);
     } catch (DataIntegrityViolationException e) {
-      return ledgerCycleRepository.findByGroupIdAndStatus(groupId, "open").orElseThrow();
+      return ledgerCycleRepository.findByOwnerUserIdAndStatus(ownerUserId, "open").orElseThrow();
     }
   }
 
   @Transactional(readOnly = true)
   public List<SettlementDto> calculateCycleSettlements(String cycleId) {
     List<ExpenseDto> expenses = expenseRepository.findByLedgerCycleId(cycleId).stream()
-        .map(ExpenseMapper::toDto)
+        .map(expenseMapper::toDto)
         .toList();
 
     Set<String> paidPairKeys = paidSettlementRepository.findByLedgerCycleId(cycleId).stream()
@@ -108,26 +110,26 @@ public class LedgerService {
   }
 
   @Transactional
-  public LedgerCycleDetailDto getCurrentCycleDetail(String groupId) {
-    LedgerCycleEntity cycle = ensureOpenCycle(groupId);
+  public LedgerCycleDetailDto getCurrentCycleDetail(String ownerUserId) {
+    LedgerCycleEntity cycle = ensureOpenCycle(ownerUserId);
     return buildDetail(cycle);
   }
 
   @Transactional(readOnly = true)
-  public LedgerCycleDetailDto getCycleDetail(String groupId, String cycleId) {
-    LedgerCycleEntity cycle = requireCycle(cycleId, groupId);
+  public LedgerCycleDetailDto getCycleDetail(String ownerUserId, String cycleId) {
+    LedgerCycleEntity cycle = requireCycle(cycleId, ownerUserId);
     return buildDetail(cycle);
   }
 
-  public List<LedgerCycleDto> listCycles(String groupId) {
-    return ledgerCycleRepository.findByGroupIdOrderByCreatedAtDesc(groupId).stream()
+  public List<LedgerCycleDto> listCycles(String ownerUserId) {
+    return ledgerCycleRepository.findByOwnerUserIdOrderByCreatedAtDesc(ownerUserId).stream()
         .map(LedgerCycleDto::from)
         .toList();
   }
 
   @Transactional
-  public LedgerCycleDetailDto closeCycle(String groupId, String actorMemberId, String status) {
-    LedgerCycleEntity cycle = ensureOpenCycle(groupId);
+  public LedgerCycleDetailDto closeCycle(String ownerUserId, String status) {
+    LedgerCycleEntity cycle = ensureOpenCycle(ownerUserId);
     List<SettlementDto> settlements = calculateCycleSettlements(cycle.getId());
     boolean paidFlag = "settled".equals(status);
 
@@ -152,7 +154,7 @@ public class LedgerService {
     cycle.setStatus(status);
     cycle.setEndDate(maxDate);
     cycle.setClosedAt(Instant.now());
-    cycle.setClosedByMemberId(actorMemberId);
+    cycle.setClosedByUserId(ownerUserId);
     // Flush the status change to the DB now: Hibernate orders inserts before updates
     // within a flush, so without this the new open cycle's insert would race the
     // old cycle's update against the partial unique index on status='open'.
@@ -160,17 +162,17 @@ public class LedgerService {
 
     String summary = paidFlag ? "Đã tất toán sổ nợ" : "Đã lưu trữ sổ nợ chưa trả";
     String action = paidFlag ? "ledger.settled" : "ledger.archived";
-    auditService.log(groupId, cycle.getId(), actorMemberId, action, "ledger_cycle", cycle.getId(), summary, null,
+    auditService.log(ownerUserId, cycle.getId(), action, "ledger_cycle", cycle.getId(), summary, null,
         LedgerCycleDto.from(cycle));
 
-    createOpenCycle(groupId);
+    createOpenCycle(ownerUserId);
 
     return buildDetail(cycle);
   }
 
   @Transactional
-  public List<SettlementDto> markPaid(String groupId, String cycleId, String settlementId, String actorMemberId) {
-    LedgerCycleEntity cycle = requireCycle(cycleId, groupId);
+  public List<SettlementDto> markPaid(String ownerUserId, String cycleId, String settlementId) {
+    LedgerCycleEntity cycle = requireCycle(cycleId, ownerUserId);
     if (!"open".equals(cycle.getStatus())) {
       throw new ConflictException("Cannot modify settlements in a closed cycle");
     }
@@ -187,15 +189,14 @@ public class LedgerService {
 
     String summary = nowPaid ? "Đã đánh dấu khoản nợ là đã trả" : "Đã hoàn tác khoản nợ thành chưa trả";
     String action = nowPaid ? "settlement.marked_paid" : "settlement.marked_unpaid";
-    auditService.log(groupId, cycleId, actorMemberId, action, "settlement", settlementId, summary, null, null);
+    auditService.log(ownerUserId, cycleId, action, "settlement", settlementId, summary, null, null);
 
     return calculateCycleSettlements(cycleId);
   }
 
   @Transactional
-  public List<SettlementDto> adjustSettlement(String groupId, String cycleId, String settlementId, long deltaAmount,
-      String actorMemberId) {
-    LedgerCycleEntity cycle = requireCycle(cycleId, groupId);
+  public List<SettlementDto> adjustSettlement(String ownerUserId, String cycleId, String settlementId, long deltaAmount) {
+    LedgerCycleEntity cycle = requireCycle(cycleId, ownerUserId);
     if (!"open".equals(cycle.getStatus())) {
       throw new ConflictException("Cannot modify settlements in a closed cycle");
     }
@@ -212,7 +213,7 @@ public class LedgerService {
     }
 
     String sign = deltaAmount > 0 ? "+" : "";
-    auditService.log(groupId, cycleId, actorMemberId, "settlement.adjusted", "settlement", settlementId,
+    auditService.log(ownerUserId, cycleId, "settlement.adjusted", "settlement", settlementId,
         "Đã điều chỉnh nợ " + sign + deltaAmount + "đ",
         Map.of("delta", previousDelta), Map.of("delta", nextDelta));
 
@@ -221,7 +222,7 @@ public class LedgerService {
 
   private LedgerCycleDetailDto buildDetail(LedgerCycleEntity cycle) {
     List<ExpenseDto> expenses = expenseRepository.findByLedgerCycleId(cycle.getId()).stream()
-        .map(ExpenseMapper::toDto)
+        .map(expenseMapper::toDto)
         .toList();
 
     List<SettlementSnapshotDto> settlements;
@@ -242,10 +243,10 @@ public class LedgerService {
     return new LedgerCycleDetailDto(LedgerCycleDto.from(cycle), expenses, settlements, auditLogs);
   }
 
-  private LedgerCycleEntity requireCycle(String cycleId, String groupId) {
+  private LedgerCycleEntity requireCycle(String cycleId, String ownerUserId) {
     LedgerCycleEntity cycle = ledgerCycleRepository.findById(cycleId)
         .orElseThrow(() -> new NotFoundException("Ledger cycle not found: " + cycleId));
-    if (!cycle.getGroupId().equals(groupId)) {
+    if (!cycle.getOwnerUserId().equals(ownerUserId)) {
       throw new NotFoundException("Ledger cycle not found: " + cycleId);
     }
     return cycle;

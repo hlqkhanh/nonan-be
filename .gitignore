@@ -5,6 +5,11 @@ target/
 application-local.properties
 application-*.local.properties
 
+# Environment files
+.env
+.env.*
+!.env.example
+
 # Logs
 *.log
 logs/

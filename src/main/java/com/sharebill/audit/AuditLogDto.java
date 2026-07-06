@@ -7,9 +7,8 @@ import java.time.Instant;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record AuditLogDto(
     String id,
-    String groupId,
+    String ownerUserId,
     String ledgerCycleId,
-    String actorMemberId,
     String action,
     String entityType,
     String entityId,
@@ -21,9 +20,8 @@ public record AuditLogDto(
   public static AuditLogDto from(AuditLogEntity entity) {
     return new AuditLogDto(
         entity.getId(),
-        entity.getGroupId(),
+        entity.getOwnerUserId(),
         entity.getLedgerCycleId(),
-        entity.getActorMemberId(),
         entity.getAction(),
         entity.getEntityType(),
         entity.getEntityId(),

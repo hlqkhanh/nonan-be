@@ -1,20 +1,31 @@
 package com.sharebill.expense;
 
-public final class ExpenseMapper {
-  private ExpenseMapper() {
+import org.springframework.stereotype.Component;
+
+@Component
+public class ExpenseMapper {
+  private final ParticipantResolver participantResolver;
+
+  public ExpenseMapper(ParticipantResolver participantResolver) {
+    this.participantResolver = participantResolver;
   }
 
-  public static ExpenseDto toDto(ExpenseEntity entity) {
+  public ExpenseDto toDto(ExpenseEntity entity) {
     var payers = entity.getPayers().stream()
-        .map(p -> new PayerContributionDto(p.getMemberId(), p.getAmount()))
+        .map(p -> {
+          var resolved = participantResolver.resolve(p.getMemberId());
+          return new PayerContributionDto(p.getMemberId(), p.getAmount(), resolved.name(), resolved.avatarUrl());
+        })
         .toList();
     var participants = entity.getParticipants().stream()
-        .map(p -> new ParticipantShareDto(p.getMemberId(), p.getAmount(), p.isCustom(), p.getMemberName()))
+        .map(p -> {
+          var resolved = participantResolver.resolve(p.getMemberId());
+          return new ParticipantShareDto(p.getMemberId(), p.getAmount(), p.isCustom(), resolved.name(), resolved.avatarUrl());
+        })
         .toList();
 
     return new ExpenseDto(
         entity.getId(),
-        entity.getGroupId(),
         entity.getTitle(),
         entity.getTotalAmount(),
         entity.getPaidDate(),
