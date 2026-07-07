@@ -32,7 +32,7 @@ public class GroupService {
 
   @Transactional(readOnly = true)
   public List<GroupDto> listGroups(String userId) {
-    return groupRepository.findAllByCreatedByUserIdOrderByCreatedAtAsc(userId).stream()
+    return groupRepository.findAllAccessibleByUser(userId).stream()
         .map(this::toDto)
         .toList();
   }
@@ -49,7 +49,7 @@ public class GroupService {
 
   @Transactional
   public GroupDto renameGroup(String userId, String groupId, RenameGroupRequest request) {
-    GroupEntity group = requireOwnedGroup(userId, groupId);
+    GroupEntity group = requireAccessibleGroup(userId, groupId);
     group.setName(request.name().trim());
     groupRepository.save(group);
     return toDto(group);
@@ -57,7 +57,7 @@ public class GroupService {
 
   @Transactional
   public GroupDto addMember(String userId, String groupId, AddGroupMemberRequest request) {
-    GroupEntity group = requireOwnedGroup(userId, groupId);
+    GroupEntity group = requireAccessibleGroup(userId, groupId);
     attachMember(userId, group, request);
     groupRepository.save(group);
     return toDto(groupRepository.findById(groupId).orElseThrow());
@@ -65,7 +65,7 @@ public class GroupService {
 
   @Transactional
   public GroupDto removeMember(String userId, String groupId, String targetType, String targetId) {
-    GroupEntity group = requireOwnedGroup(userId, groupId);
+    GroupEntity group = requireAccessibleGroup(userId, groupId);
     GroupMemberEntity member = groupMemberRepository.findByGroupIdAndTargetTypeAndTargetId(groupId, targetType, targetId)
         .orElseThrow(() -> new NotFoundException("Không tìm thấy thành viên trong nhóm"));
     group.getMembers().remove(member);
@@ -120,11 +120,23 @@ public class GroupService {
     return group;
   }
 
+  private GroupEntity requireAccessibleGroup(String userId, String groupId) {
+    GroupEntity group = groupRepository.findById(groupId)
+        .orElseThrow(() -> new NotFoundException("Không tìm thấy nhóm: " + groupId));
+    boolean isCreator = userId.equals(group.getCreatedByUserId());
+    boolean isMember = group.getMembers().stream()
+        .anyMatch(m -> "user".equals(m.getTargetType()) && userId.equals(m.getTargetId()));
+    if (!isCreator && !isMember) {
+      throw new ForbiddenException("Bạn không có quyền với nhóm này");
+    }
+    return group;
+  }
+
   private GroupDto toDto(GroupEntity group) {
     List<GroupMemberDto> members = group.getMembers().stream()
         .map(this::resolveMember)
         .toList();
-    return new GroupDto(group.getId(), group.getName(), members);
+    return new GroupDto(group.getId(), group.getName(), members, group.getCreatedByUserId());
   }
 
   private GroupMemberDto resolveMember(GroupMemberEntity member) {
