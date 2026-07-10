@@ -6,7 +6,7 @@ import com.sharebill.common.SettlementCalculator;
 import com.sharebill.expense.ExpenseDto;
 import com.sharebill.expense.ParticipantShareDto;
 import com.sharebill.expense.PayerContributionDto;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -28,7 +28,7 @@ class SettlementCalculatorTest {
         "expense-1",
         "Dinner",
         90000,
-        LocalDate.of(2026, 7, 3),
+        LocalDateTime.of(2026, 7, 3, 12, 0),
         null,
         List.of(new PayerContributionDto("a", 50000), new PayerContributionDto("b", 40000)),
         defaultParticipants(),
@@ -50,7 +50,7 @@ class SettlementCalculatorTest {
         "expense-1",
         "Dinner",
         90000,
-        LocalDate.of(2026, 7, 3),
+        LocalDateTime.of(2026, 7, 3, 12, 0),
         null,
         List.of(new PayerContributionDto("x", 90000)),
         defaultParticipants(),
@@ -69,7 +69,7 @@ class SettlementCalculatorTest {
         "expense-1",
         "Free",
         0,
-        LocalDate.of(2026, 7, 3),
+        LocalDateTime.of(2026, 7, 3, 12, 0),
         null,
         List.of(new PayerContributionDto("a", 0)),
         List.of(new ParticipantShareDto("a", 0, false, null)),
@@ -91,7 +91,7 @@ class SettlementCalculatorTest {
         "expense-1",
         "Dinner",
         90000,
-        LocalDate.of(2026, 7, 3),
+        LocalDateTime.of(2026, 7, 3, 12, 0),
         null,
         List.of(new PayerContributionDto("a", 90000)),
         defaultParticipants(),
