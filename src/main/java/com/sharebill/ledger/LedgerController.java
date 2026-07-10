@@ -38,14 +38,24 @@ public class LedgerController {
     return ledgerService.getCycleDetail(user.getId(), cycleId);
   }
 
-  @PostMapping("/current/settle")
-  public LedgerCycleDetailDto settle(@AuthenticationPrincipal UserEntity user) {
-    return ledgerService.closeCycle(user.getId(), "settled");
+  @PostMapping("/cycles/{cycleId}/settle")
+  public LedgerCycleDetailDto settle(@PathVariable String cycleId, @AuthenticationPrincipal UserEntity user) {
+    return ledgerService.closeCycle(user.getId(), cycleId, "settled");
   }
 
-  @PostMapping("/current/archive")
-  public LedgerCycleDetailDto archive(@AuthenticationPrincipal UserEntity user) {
-    return ledgerService.closeCycle(user.getId(), "archived_unpaid");
+  @PostMapping("/cycles/{cycleId}/archive")
+  public LedgerCycleDetailDto archive(@PathVariable String cycleId, @AuthenticationPrincipal UserEntity user) {
+    return ledgerService.closeCycle(user.getId(), cycleId, "archived_unpaid");
+  }
+
+  @PostMapping("/cycles/{cycleId}/reopen")
+  public LedgerCycleDetailDto reopen(@PathVariable String cycleId, @AuthenticationPrincipal UserEntity user) {
+    return ledgerService.reopenCycle(user.getId(), cycleId);
+  }
+
+  @PostMapping("/cycles/{cycleId}/set-active")
+  public LedgerCycleDetailDto setActive(@PathVariable String cycleId, @AuthenticationPrincipal UserEntity user) {
+    return ledgerService.setActive(user.getId(), cycleId);
   }
 
   @PostMapping("/cycles/{cycleId}/settlements/mark-paid")

@@ -9,7 +9,9 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class CloudinaryService {
-  private static final String FOLDER = "sharebill/avatars";
+  private static final String FOLDER_AVATARS = "sharebill/avatars";
+  private static final String FOLDER_BILLS = "sharebill/bills";
+  private static final java.util.Set<String> ALLOWED_FOLDERS = java.util.Set.of(FOLDER_AVATARS, FOLDER_BILLS);
 
   @Value("${cloudinary.cloud-name}")
   private String cloudName;
@@ -21,10 +23,18 @@ public class CloudinaryService {
   private String apiSecret;
 
   public AvatarSignatureResponse createUploadSignature() {
+    return createUploadSignature(FOLDER_AVATARS);
+  }
+
+  /** Issues a signed-upload signature scoped to an allowlisted folder (avatars or bill photos). */
+  public AvatarSignatureResponse createUploadSignature(String folder) {
+    if (!ALLOWED_FOLDERS.contains(folder)) {
+      throw new IllegalArgumentException("Unsupported upload folder: " + folder);
+    }
     long timestamp = Instant.now().getEpochSecond();
-    String paramsToSign = "folder=" + FOLDER + "&timestamp=" + timestamp;
+    String paramsToSign = "folder=" + folder + "&timestamp=" + timestamp;
     String signature = sha1Hex(paramsToSign + apiSecret);
-    return new AvatarSignatureResponse(signature, timestamp, apiKey, cloudName, FOLDER);
+    return new AvatarSignatureResponse(signature, timestamp, apiKey, cloudName, folder);
   }
 
   private String sha1Hex(String input) {

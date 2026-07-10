@@ -20,7 +20,7 @@ public class SettlementController {
 
   @GetMapping
   public List<SettlementDto> settlements(@AuthenticationPrincipal UserEntity user) {
-    LedgerCycleEntity cycle = ledgerService.ensureOpenCycle(user.getId());
+    LedgerCycleEntity cycle = ledgerService.ensureActiveCycle(user.getId());
     return ledgerService.calculateCycleSettlements(cycle.getId());
   }
 }

@@ -1,5 +1,7 @@
 package com.sharebill.expense;
 
+import com.sharebill.user.AvatarSignatureResponse;
+import com.sharebill.user.CloudinaryService;
 import com.sharebill.user.UserEntity;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -19,9 +21,16 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/expenses")
 public class ExpenseController {
   private final ExpenseService expenseService;
+  private final CloudinaryService cloudinaryService;
 
-  public ExpenseController(ExpenseService expenseService) {
+  public ExpenseController(ExpenseService expenseService, CloudinaryService cloudinaryService) {
     this.expenseService = expenseService;
+    this.cloudinaryService = cloudinaryService;
+  }
+
+  @PostMapping("/photo/signature")
+  public AvatarSignatureResponse photoUploadSignature() {
+    return cloudinaryService.createUploadSignature("sharebill/bills");
   }
 
   @GetMapping

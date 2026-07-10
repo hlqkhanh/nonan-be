@@ -101,7 +101,8 @@ class ShareBillIntegrationTest {
     ResponseEntity<String> noAuth = rest.getForEntity("/api/auth/me", String.class);
     assertThat(noAuth.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
 
-    // Each user has their own isolated personal ledger.
+    // A user unrelated to any bill still has their own empty ledger (isolation still holds —
+    // shared visibility is only granted via ledger_cycle_members, i.e. by being a bill participant).
     Map<String, Object> signupB = post("/api/auth/signup", Map.of(
         "email", "carol" + System.nanoTime() + "@test.local",
         "password", "password123",
@@ -113,6 +114,172 @@ class ShareBillIntegrationTest {
     assertThat((List<?>) currentB.get("expenses")).isEmpty();
     List<Map<String, Object>> expensesB = getList("/api/expenses", tokenB);
     assertThat(expensesB).isEmpty();
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  void sharedLedgerVisibleToParticipantsWithPinAndReopen() {
+    Map<String, Object> signupA = post("/api/auth/signup", Map.of(
+        "email", "dana" + System.nanoTime() + "@test.local",
+        "password", "password123",
+        "displayName", "Dana"
+    ), null);
+    String tokenA = (String) signupA.get("token");
+    Map<String, Object> userA = (Map<String, Object>) signupA.get("user");
+    String userAId = (String) userA.get("id");
+
+    Map<String, Object> signupB = post("/api/auth/signup", Map.of(
+        "email", "erin" + System.nanoTime() + "@test.local",
+        "password", "password123",
+        "displayName", "Erin"
+    ), null);
+    String tokenB = (String) signupB.get("token");
+    Map<String, Object> userB = (Map<String, Object>) signupB.get("user");
+    String userBId = (String) userB.get("id");
+    String userBUsername = (String) userB.get("username");
+
+    // A and B become accepted friends.
+    post("/api/friends/requests", Map.of("username", userBUsername), tokenA);
+    List<Map<String, Object>> requestsForB = (List<Map<String, Object>>) get("/api/friends/requests", tokenB)
+        .get("incoming");
+    String requestId = (String) requestsForB.get(0).get("id");
+    rest.exchange("/api/friends/requests/" + requestId + "/accept", HttpMethod.POST,
+        new HttpEntity<>(null, authHeaders(tokenB)), Void.class);
+
+    String memberA = "user:" + userAId;
+    String memberB = "user:" + userBId;
+
+    // A creates a bill with B as a participant/payer -> the bill lands in A's own open cycle,
+    // but B becomes a member of that shared cycle.
+    Map<String, Object> bill = Map.of(
+        "id", "shared-exp-1",
+        "title", "Nhau",
+        "totalAmount", 150000,
+        "paidDate", "2026-07-06",
+        "payers", List.of(Map.of("memberId", memberA, "amount", 150000)),
+        "participants", List.of(
+            Map.of("memberId", memberA, "amount", 75000, "isCustom", false),
+            Map.of("memberId", memberB, "amount", 75000, "isCustom", false)
+        ),
+        "splitMode", "equal"
+    );
+    Map<String, Object> createdBill = post("/api/expenses", bill, tokenA);
+    assertThat(createdBill.get("createdByDisplayName")).isEqualTo("Dana");
+    String cycleId = (String) createdBill.get("ledgerCycleId");
+
+    // B sees the shared cycle in /cycles, pinned by default, and can fetch its detail.
+    List<Map<String, Object>> cyclesForB = getList("/api/ledger/cycles", tokenB);
+    Map<String, Object> cycleSeenByB = cyclesForB.stream()
+        .filter(c -> cycleId.equals(c.get("id")))
+        .findFirst()
+        .orElseThrow();
+    assertThat((Boolean) cycleSeenByB.get("pinned")).isTrue();
+    assertThat((Boolean) cycleSeenByB.get("isOwner")).isFalse();
+    assertThat(cycleSeenByB.get("ownerDisplayName")).isEqualTo("Dana");
+
+    Map<String, Object> detailForB = get("/api/ledger/cycles/" + cycleId, tokenB);
+    Map<String, Object> membersMap = (Map<String, Object>) detailForB.get("members");
+    assertThat(membersMap).containsKey(memberA);
+    assertThat(membersMap).containsKey(memberB);
+
+    // A creates a second bill also involving B, so B's membership survives even after the first
+    // bill (the only other thing tying B to this cycle) gets edited/deleted below.
+    Map<String, Object> bill2 = Map.of(
+        "id", "shared-exp-2",
+        "title", "Cafe",
+        "totalAmount", 60000,
+        "paidDate", "2026-07-06",
+        "payers", List.of(Map.of("memberId", memberA, "amount", 60000)),
+        "participants", List.of(
+            Map.of("memberId", memberA, "amount", 30000, "isCustom", false),
+            Map.of("memberId", memberB, "amount", 30000, "isCustom", false)
+        ),
+        "splitMode", "equal"
+    );
+    post("/api/expenses", bill2, tokenA);
+
+    // B edits the bill -> audit log carries B's name and the amount change.
+    Map<String, Object> editedBill = Map.of(
+        "id", "shared-exp-1",
+        "title", "Nhau",
+        "totalAmount", 100000,
+        "paidDate", "2026-07-06",
+        "payers", List.of(Map.of("memberId", memberA, "amount", 100000)),
+        "participants", List.of(
+            Map.of("memberId", memberA, "amount", 50000, "isCustom", false),
+            Map.of("memberId", memberB, "amount", 50000, "isCustom", false)
+        ),
+        "splitMode", "equal"
+    );
+    ResponseEntity<Map> editResponse = rest.exchange(
+        "/api/expenses/shared-exp-1", HttpMethod.PUT,
+        new HttpEntity<>(editedBill, authHeaders(tokenB)), Map.class);
+    assertThat(editResponse.getStatusCode().is2xxSuccessful()).isTrue();
+
+    Map<String, Object> detailAfterEdit = get("/api/ledger/cycles/" + cycleId, tokenA);
+    List<Map<String, Object>> auditAfterEdit = (List<Map<String, Object>>) detailAfterEdit.get("auditLogs");
+    assertThat(auditAfterEdit).anyMatch(a -> ((String) a.get("summary")).contains("Erin")
+        && ((String) a.get("summary")).contains("150000")
+        && ((String) a.get("summary")).contains("100000"));
+
+    // B soft-deletes the bill -> disappears from detail, but the audit trail shows B deleted it.
+    ResponseEntity<Void> deleteResponse = rest.exchange(
+        "/api/expenses/shared-exp-1", HttpMethod.DELETE,
+        new HttpEntity<>(authHeaders(tokenB)), Void.class);
+    assertThat(deleteResponse.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+
+    Map<String, Object> detailAfterDelete = get("/api/ledger/cycles/" + cycleId, tokenA);
+    List<Map<String, Object>> expensesAfterDelete = (List<Map<String, Object>>) detailAfterDelete.get("expenses");
+    assertThat(expensesAfterDelete).noneMatch(e -> "shared-exp-1".equals(e.get("id")));
+    assertThat(expensesAfterDelete).anyMatch(e -> "shared-exp-2".equals(e.get("id")));
+    List<Map<String, Object>> auditAfterDelete = (List<Map<String, Object>>) detailAfterDelete.get("auditLogs");
+    assertThat(auditAfterDelete).anyMatch(a -> ((String) a.get("summary")).contains("Erin")
+        && ((String) a.get("summary")).contains("đã xóa"));
+
+    // B unpins the shared cycle -> only affects B; A still sees it pinned.
+    Map<String, Object> unpinnedForB = post("/api/ledger/cycles/" + cycleId + "/unpin", Map.of(), tokenB);
+    Map<String, Object> unpinnedCycleForB = (Map<String, Object>) unpinnedForB.get("cycle");
+    assertThat((Boolean) unpinnedCycleForB.get("pinned")).isFalse();
+
+    List<Map<String, Object>> cyclesForBAfterUnpin = getList("/api/ledger/cycles", tokenB);
+    Map<String, Object> cycleSeenByBAfterUnpin = cyclesForBAfterUnpin.stream()
+        .filter(c -> cycleId.equals(c.get("id")))
+        .findFirst()
+        .orElseThrow();
+    assertThat((Boolean) cycleSeenByBAfterUnpin.get("pinned")).isFalse();
+
+    List<Map<String, Object>> cyclesForA = getList("/api/ledger/cycles", tokenA);
+    Map<String, Object> cycleSeenByA = cyclesForA.stream()
+        .filter(c -> cycleId.equals(c.get("id")))
+        .findFirst()
+        .orElseThrow();
+    assertThat((Boolean) cycleSeenByA.get("pinned")).isTrue();
+
+    // B (any member) settles the cycle -> closed for everyone.
+    Map<String, Object> settledByB = post("/api/ledger/cycles/" + cycleId + "/settle", Map.of(), tokenB);
+    Map<String, Object> settledCycle = (Map<String, Object>) settledByB.get("cycle");
+    assertThat(settledCycle.get("status")).isEqualTo("settled");
+
+    Map<String, Object> detailForAAfterSettle = get("/api/ledger/cycles/" + cycleId, tokenA);
+    Map<String, Object> cycleForAAfterSettle = (Map<String, Object>) detailForAAfterSettle.get("cycle");
+    assertThat(cycleForAAfterSettle.get("status")).isEqualTo("settled");
+
+    // A's next bill lazily opens a brand-new cycle for A (no eager creation on close).
+    Map<String, Object> currentForA = get("/api/ledger/current", tokenA);
+    Map<String, Object> newCycleForA = (Map<String, Object>) currentForA.get("cycle");
+    assertThat(newCycleForA.get("id")).isNotEqualTo(cycleId);
+
+    // Reopening the settled cycle ("hủy tất toán") works without hitting the one-open-cycle
+    // unique index, even though A's owner already has a fresh empty open cycle right now.
+    Map<String, Object> reopened = post("/api/ledger/cycles/" + cycleId + "/reopen", Map.of(), tokenA);
+    Map<String, Object> reopenedCycle = (Map<String, Object>) reopened.get("cycle");
+    assertThat(reopenedCycle.get("status")).isEqualTo("open");
+    assertThat((List<?>) reopened.get("settlements")).isNotNull();
+
+    // A's own open cycle is now this reopened one again (the stray empty one was cleaned up).
+    Map<String, Object> currentForAAfterReopen = get("/api/ledger/current", tokenA);
+    Map<String, Object> currentCycleAfterReopen = (Map<String, Object>) currentForAAfterReopen.get("cycle");
+    assertThat(currentCycleAfterReopen.get("id")).isEqualTo(cycleId);
   }
 
   private HttpHeaders authHeaders(String token) {

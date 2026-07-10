@@ -8,7 +8,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import java.time.Instant;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,7 +31,7 @@ public class ExpenseEntity {
   private long totalAmount;
 
   @Column(name = "paid_date", nullable = false)
-  private LocalDate paidDate;
+  private LocalDateTime paidDate;
 
   @Column(name = "image_url")
   private String imageUrl;
@@ -45,6 +45,12 @@ public class ExpenseEntity {
   @Column(name = "updated_at", nullable = false)
   private Instant updatedAt;
 
+  @Column(name = "deleted_at")
+  private Instant deletedAt;
+
+  @Column(name = "deleted_by_user_id")
+  private String deletedByUserId;
+
   @OneToMany(mappedBy = "expense", cascade = CascadeType.ALL, orphanRemoval = true)
   @OrderBy("position ASC")
   private List<ExpensePayerEntity> payers = new ArrayList<>();
@@ -57,7 +63,7 @@ public class ExpenseEntity {
   }
 
   public ExpenseEntity(String id, String ownerUserId, String ledgerCycleId, String title, long totalAmount,
-      LocalDate paidDate, String imageUrl, String splitMode, Instant createdAt, Instant updatedAt) {
+      LocalDateTime paidDate, String imageUrl, String splitMode, Instant createdAt, Instant updatedAt) {
     this.id = id;
     this.ownerUserId = ownerUserId;
     this.ledgerCycleId = ledgerCycleId;
@@ -98,11 +104,11 @@ public class ExpenseEntity {
     this.totalAmount = totalAmount;
   }
 
-  public LocalDate getPaidDate() {
+  public LocalDateTime getPaidDate() {
     return paidDate;
   }
 
-  public void setPaidDate(LocalDate paidDate) {
+  public void setPaidDate(LocalDateTime paidDate) {
     this.paidDate = paidDate;
   }
 
@@ -140,5 +146,21 @@ public class ExpenseEntity {
 
   public List<ExpenseParticipantEntity> getParticipants() {
     return participants;
+  }
+
+  public Instant getDeletedAt() {
+    return deletedAt;
+  }
+
+  public void setDeletedAt(Instant deletedAt) {
+    this.deletedAt = deletedAt;
+  }
+
+  public String getDeletedByUserId() {
+    return deletedByUserId;
+  }
+
+  public void setDeletedByUserId(String deletedByUserId) {
+    this.deletedByUserId = deletedByUserId;
   }
 }

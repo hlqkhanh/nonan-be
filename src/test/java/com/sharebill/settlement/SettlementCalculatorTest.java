@@ -33,7 +33,8 @@ class SettlementCalculatorTest {
         List.of(new PayerContributionDto("a", 50000), new PayerContributionDto("b", 40000)),
         defaultParticipants(),
         "equal",
-        "cycle-1"
+        "cycle-1",
+        null
     );
 
     assertThat(SettlementCalculator.calculate(List.of(expense), Set.of()))
@@ -54,7 +55,8 @@ class SettlementCalculatorTest {
         List.of(new PayerContributionDto("x", 90000)),
         defaultParticipants(),
         "equal",
-        "cycle-1"
+        "cycle-1",
+        null
     );
 
     assertThat(SettlementCalculator.calculate(List.of(expense), Set.of()))
@@ -72,7 +74,8 @@ class SettlementCalculatorTest {
         List.of(new PayerContributionDto("a", 0)),
         List.of(new ParticipantShareDto("a", 0, false, null)),
         "equal",
-        "cycle-1"
+        "cycle-1",
+        null
     );
 
     assertThat(SettlementCalculator.calculate(List.of(expense), Set.of())).isEmpty();
@@ -93,7 +96,8 @@ class SettlementCalculatorTest {
         List.of(new PayerContributionDto("a", 90000)),
         defaultParticipants(),
         "equal",
-        "cycle-1"
+        "cycle-1",
+        null
     );
   }
 
